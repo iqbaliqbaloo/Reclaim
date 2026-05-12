@@ -1,0 +1,42 @@
+# Environment — never upload real secrets
+.env
+.env.local
+.env.production
+.env.staging
+
+# Node modules — reinstalled fresh each time
+node_modules/
+**/node_modules/
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Build output
+dist/
+build/
+.next/
+**/dist/
+**/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test coverage
+coverage/
+**/coverage/
+
+# Docker volumes
+docker-volumes/
+
+# Uploaded files (local dev)
+uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
