@@ -1,0 +1,24 @@
+const { Pool } = require('pg')
+
+const pool = new Pool({
+  host:     process.env.POSTGRES_HOST     || 'localhost',
+  port:     parseInt(process.env.POSTGRES_PORT) || 5432,
+  user:     process.env.POSTGRES_USER     || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
+  database: process.env.POSTGRES_DB       || 'reclaim'
+})
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('[db] PostgreSQL connection failed:', err.message)
+    console.error('[db] make sure PostgreSQL is running on localhost:5432')
+    return
+  }
+  console.log('[db] PostgreSQL connected successfully')
+  console.log('[db] database:', client.database)
+  release() // release connection back to pool
+})
+pool.on('error', (err) => {
+  console.error('[db] unexpected PostgreSQL pool error:', err.message)
+})
+
+module.exports = pool
