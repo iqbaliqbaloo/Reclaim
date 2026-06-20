@@ -10,12 +10,6 @@ app.listen(PORT, () => {
   console.log(`[server] claim-service listening on port ${PORT}`)
 })
 
-/*
-  Background jobs
-  Run every 15 minutes
-  1. Process expired claims (72h window passed)
-  2. Send reminders to listing owners
-*/
 setInterval(async () => {
   console.log('[server] running background jobs...')
   try {
