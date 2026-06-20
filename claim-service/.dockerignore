@@ -1,0 +1,30 @@
+
+node_modules/
+
+
+.env
+.env.local
+.env.production
+
+# Logs — not needed in container
+*.log
+logs/
+
+# Test files — not needed in production container
+__tests__/
+coverage/
+
+# OS files — not needed
+.DS_Store
+Thumbs.db
+
+# Git files — not needed inside container
+.git/
+.gitignore
+
+# Dev tools — not needed in container
+.vscode/
+.idea/
+
+# Readme docs — not needed in container
+README.md

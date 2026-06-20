@@ -4,19 +4,14 @@ const axios = require('axios')
 const User= require('../models/user.model')
 const {sendEmail} = require('./email.service')
 
-const generateTokens =(user) =>{
-    console.log('[auth.service] generating tokens for user:', user._id)
-    const accessToken = jwt.sign(
-        {
-            userId:user._id,
-            email:user.email,
-            role:user.role
-        },
+const generateTokens =(id) =>{
+    console.log('[auth.service] generating tokens for user:', id)
+    const accessToken = jwt.sign({id},
         process.env.JWT_SECRET,
         {expiresIn:'15m'}
     )
     const refreshToken = jwt.sign(
-        {userId:user._id},
+        {id},
         process.env.JWT_REFRESH_SECRET,
         {expiresIn:'7d'}
     )
@@ -35,7 +30,8 @@ const callUserService = async (method, path, data) => {
       method,
       url:     `${process.env.USER_SERVICE_URL}${path}`,
       data,
-      timeout: 5000
+      timeout: 5000,
+       headers: { 'x-internal-secret': process.env.INTERNAL_SECRET }
     })
 
     console.log('[auth.service] user-service response:', response.data)
@@ -111,7 +107,12 @@ const loginUser = async (email,password)=>{
       err.statusCode=401
       throw err
     }
-    const {accessToken,refreshToken} = generateTokens(user)
+    if(!user.isEmailVerified){
+    const err = new Error('Please verify your email before logging in.')
+    err.statusCode = 403
+    throw err
+}
+    const {accessToken,refreshToken} = generateTokens(user._id)
     user.refreshTokens.push(refreshToken)
     await user.save()
     console.log('[auth.service] refresh token saved to MongoDB')
@@ -133,23 +134,25 @@ const refreshAccessToken = async (refreshToken)=>{
     err.statusCode=401
     throw err
   }
-  let decode
+  let decoded
   try{
     decoded =jwt.verify(refreshToken,process.env.JWT_REFRESH_SECRET)
     console.log('[auth.service] refresh token decoded:', decoded)
-  }catch(e){
+    
+  }catch(_err){
     const err = new Error('invalid or expired refresh token')
     err.statusCode=401
     throw err
   }
-  const user = await User.findById(decoded.userId)
+   const user = await User.findById(decoded.id)
   console.log('[auth.service] user found for refresh:', user ? 'YES' : 'NO')
   if(!user){
     const err = new Error('Usernot found')
     err.statusCode=401
     throw err
   }
-  const tokenIndex = user.refreshToken.indexOf(refreshToken)
+
+  const tokenIndex = user.refreshTokens.indexOf(refreshToken)
   console.log('[auth.service] token index in array:', tokenIndex)
   if(tokenIndex===-1){
     user.refreshTokens=[]
@@ -159,7 +162,7 @@ const refreshAccessToken = async (refreshToken)=>{
     err.statusCode = 401
     throw err
   }
-  const {accessToken:newAccessToken,refreshToken:newRefreshToken}=generateTokens(user)
+const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user._id)
   user.refreshTokens.splice(tokenIndex,1)
   user.refreshTokens.push(newRefreshToken)
   await user.save()
@@ -180,6 +183,19 @@ const logoutUser = async(userId,refreshToken)=>{
     console.log('[auth.service] refresh tokens before:', before, 'after:', after)
   }
   return{message:'Logged out successfully'}
+}
+
+const logoutAllDevices = async (userId) => {
+    console.log('[auth.service] logoutAllDevices called')
+    console.log('[auth.service] userId:', userId)
+
+    const user = await User.findById(userId)
+    if(user){
+        user.refreshTokens = []
+        await user.save()
+        console.log('[auth.service] all sessions cleared for user:', userId)
+    }
+    return { message: 'Logged out from all devices successfully' }
 }
 const verifyEmail = async(token)=>{
   console.log('[auth.service] verifyEmail called')
@@ -279,7 +295,7 @@ const handleGoogleUser=async(googleProfile)=>{
     err.statusCode = 403
     throw err
   }
-  const {accessToken,refreshToken}= generateTokens(user)
+  const {accessToken,refreshToken}= generateTokens(user._id)
   user.refreshTokens.push(refreshToken)
   await user.save()
 
@@ -326,6 +342,7 @@ const sendVerificationEmail =async(email,token)=>{
     loginUser,
     refreshAccessToken,
     logoutUser,
+    logoutAllDevices, 
     verifyEmail,
     forgetPassword,
     resetPassword,

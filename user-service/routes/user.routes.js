@@ -7,15 +7,24 @@ const {
   banValidator,
   createProfileValidator
 } = require('../validators/user.validators')
+const internalOnly = (req, res, next) => {
+    const secret = req.headers['x-internal-secret']
+    if(secret !== process.env.INTERNAL_SECRET){
+        return res.status(403).json({ success: false, error: 'Forbidden' })
+    }
+    next()
+}
 
 router.post(
   '/internal/create-profile',
+  internalOnly,
   createProfileValidator,
   controller.createProfile
 )
 
 router.post(
   '/internal/update-role',
+  internalOnly,
   controller.updateRole
 )
 
@@ -33,6 +42,7 @@ router.post(
 
 router.post(
   '/internal/increment-reputation',
+  internalOnly,
   controller.incrementReputation
 )
 

@@ -14,7 +14,7 @@ pool.connect((err, client, release) => {
     return
   }
   console.log('[db] PostgreSQL connected successfully')
-  console.log('[db] database:', client.database)
+  console.log('[db] database:', process.env.POSTGRES_DB || 'reclaim')
   release() // release connection back to pool
 })
 pool.on('error', (err) => {

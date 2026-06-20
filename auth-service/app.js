@@ -1,7 +1,7 @@
 const express = require('express')
 const cookieParser = require('cookie-parser')
 const cors = require('cors')
-passport = require('./services/passport.service')
+const passport = require('./services/passport.service')
 
 const authRoutes = require('./routes/auth.routes')
 const app = express()

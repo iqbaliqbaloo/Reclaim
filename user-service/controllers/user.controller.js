@@ -1,4 +1,4 @@
-const pool = require('../db')
+
 const userService = require('../services/user.service')
 
 const createProfile = async (req, res) => {
@@ -28,7 +28,7 @@ const getMyProfile = async (req, res) => {
     console.log('[user.controller] getMyProfile called')
     console.log('[user.controller] req.user:', req.user)
 
-    const result = await userService.getMyProfile(req.user.userId)
+    const result = await userService.getMyProfile(req.user._id)
 
     console.log('[user.controller] sending getMyProfile response')
     return res.status(200).json({
@@ -73,7 +73,7 @@ const updateProfile = async (req, res) => {
     console.log('[user.controller] req.user:', req.user)
     console.log('[user.controller] req.body received:', req.body)
 
-    const result = await userService.updateProfile(req.user.userId, req.body)
+    const result = await userService.updateProfile(req.user._id, req.body)
 
     console.log('[user.controller] sending updateProfile response:', result)
     return res.status(200).json({
@@ -95,7 +95,7 @@ const checkCanPost = async (req, res) => {
     console.log('[user.controller] checkCanPost called')
     console.log('[user.controller] req.user:', req.user)
 
-    const result = await userService.checkCanPost(req.user.userId)
+    const result = await userService.checkCanPost(req.user._id)
 
     console.log('[user.controller] sending checkCanPost response:', result)
     return res.status(200).json({
@@ -117,7 +117,7 @@ const incrementPostCount = async (req, res) => {
     console.log('[user.controller] incrementPostCount called')
     console.log('[user.controller] req.user:', req.user)
 
-    const result = await userService.incrementPostCount(req.user.userId)
+    const result = await userService.incrementPostCount(req.user._id)
 
     console.log('[user.controller] sending incrementPostCount response:', result)
     return res.status(200).json({

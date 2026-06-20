@@ -1,7 +1,8 @@
 const express = require('express')
 const router=express.Router()
 const controller = require('../controllers/auth.controller');
-const {protect} = require('../middleware/auth')
+const {protect,authorize} = require('../middleware/auth')
+const { loginLimiter } = require('../middleware/rateLimit')
 const{
     registerValidator,
     loginValidator,
@@ -9,10 +10,10 @@ const{
     resetPasswordValidator
 } = require('../validators/auth.validators');
 router.post('/register',registerValidator,controller.register)
-router.post('/login',loginValidator,controller.login)
+router.post('/login',loginLimiter,loginValidator,controller.login)
 router.post('/refresh',controller.refresh)
 
-router.get('verify-email/:token',controller.verifyEmail)
+router.get('/verify-email/:token',controller.verifyEmail)
 
 router.post('/forget-password',forgotPasswordValidator,controller.forgotPassword)
 
@@ -20,8 +21,9 @@ router.post('/reset-password/:token',resetPasswordValidator,controller.resetPass
 
 router.get('/google',controller.googleAuth)
 
-router.get('google/callback',controller.googleCallback)
-router.post('/logout',protect,controller.logout)
-router.get('/me',protect,controller.getMe)
+router.get('/google/callback',controller.googleCallback)
+router.post('/logout',protect,authorize('user', 'admin'),controller.logout)
+router.post('/logout-all', protect, authorize('user', 'admin'),controller.logoutAll) 
+router.get('/me',protect,authorize('user', 'admin'),controller.getMe)
 
 module.exports = router

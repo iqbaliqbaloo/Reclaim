@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken')
-const protect = (req,res,next)=>{
+const user = require('../models/user.model')
+const protect = async (req,res,next)=>{
      console.log('[auth.middleware] protect() called')
      console.log('[auth.middleware] authorization header:', req.headers.authorization ? 'PRESENT' : 'MISSING')
      
@@ -16,13 +17,14 @@ const protect = (req,res,next)=>{
      try{
         const decoded = jwt.verify(token,process.env.JWT_SECRET)
          console.log('[auth.middleware] token decoded successfully')
-         console.log('[auth.middleware] decoded.userId:', decoded.userId)
+         console.log('[auth.middleware] decoded.id:', decoded.id)
          console.log('[auth.middleware] decoded.role:', decoded.role)
          console.log('[auth.middleware] token expires at:', new Date(decoded.exp * 1000))
-         req.user={
-            userId:decoded.userId,
-            email:decoded.email,
-            role:decoded.role
+         req.user = await user.findById(decoded.id).select('-password')
+         if(!req.user){
+            return res.status(401).json({
+                message:'User not found'
+            })
          }
          console.log('[auth.middleware] req.user set:', req.user)
          next()

@@ -90,6 +90,11 @@ const incrementPostCount = async (authId) => {
 }
 
 const incrementReputation = async (authId) => {
+  if(!authId){
+        const err = new Error('authId is required')
+        err.statusCode = 400
+        throw err
+    }
   console.log('[user.service] incrementReputation called for:', authId)
 
   const result = await userModel.incrementReputation(authId)

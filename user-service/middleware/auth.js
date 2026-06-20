@@ -1,6 +1,7 @@
+const axios = require('axios')
 const jwt = require('jsonwebtoken')
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   console.log('[auth.middleware] protect() called')
   console.log('[auth.middleware] authorization header:',
     req.headers.authorization ? 'PRESENT' : 'MISSING'
@@ -18,18 +19,10 @@ const protect = (req, res, next) => {
   const token = authHeader.split(' ')[1]
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-    console.log('[auth.middleware] token valid')
-    console.log('[auth.middleware] decoded.userId:', decoded.userId)
-    console.log('[auth.middleware] decoded.role:', decoded.role)
-
-    req.user = {
-      userId: decoded.userId,
-      email:  decoded.email,
-      role:   decoded.role
-    }
-
+   const response = await axios.get(`${process.env.AUTH_SERVICE_URL}/api/auth/me`, {
+      headers:{Authorization :`Bearer ${token}`},
+    })
+    req.user=response.data.data
     next()
   } catch (err) {
     console.log('[auth.middleware] token invalid:', err.message)

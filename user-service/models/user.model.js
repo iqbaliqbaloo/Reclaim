@@ -55,7 +55,9 @@ const findById = async (id) => {
 const findAll = async () => {
   console.log('[user.model] findAll called')
 
-  const sql    = `SELECT * FROM users ORDER BY created_at DESC`
+  const sql    = `SELECT id, auth_id, email, name, role, 
+         reputation, is_banned, ban_reason, created_at
+  FROM users ORDER BY created_at DESC`
   const result = await pool.query(sql)
 
   console.log('[user.model] findAll — total users:', result.rows.length)
@@ -166,6 +168,11 @@ const incrementReputation = async (authId)=>{
   WHERE auth_id=$1
   RETURNING reputation`
   const result = await pool.query(sql,[authId])
+  if(!result.rows[0]){
+    const err = new Error('User not found')
+    err.statusCode = 404
+    throw err
+}
   return result.rows[0]
 }
 

@@ -195,3 +195,201 @@ const sql = `
     totalPages: Math.ceil(total / limit)
   }
 }
+
+const findByUserId = async (userId) => {
+  console.log('[listing.model] findByUserId:', userId)
+
+  const sql = `
+    SELECT
+      id, user_id, type, title, description, category,
+      date_occurred, location_label,
+      reward_offered, reward_note,
+      status, created_at, updated_at
+    FROM listings
+    WHERE user_id = $1
+    AND deleted_at IS NULL
+    ORDER BY created_at DESC
+  `
+
+  const result = await pool.query(sql, [userId])
+
+  console.log('[listing.model] findByUserId — listings found:', result.rows.length)
+  return result.rows
+}
+
+
+const updateStatus = async (id, status, userId) => {
+  console.log('[listing.model] updateStatus called')
+  console.log('[listing.model] listing id:', id)
+  console.log('[listing.model] new status:', status)
+  console.log('[listing.model] called by userId:', userId)
+
+  const sql = `
+    UPDATE listings
+    SET status = $1, updated_at = NOW()
+    WHERE id = $2
+    AND (user_id = $3 OR $3 = 'admin')
+    RETURNING
+      id, user_id, type, title, status,
+      created_at, updated_at
+  `
+
+  const result = await pool.query(sql, [status, id, userId])
+
+  if (result.rows.length === 0) {
+    console.log('[listing.model] updateStatus — not found or not authorized')
+    return null
+  }
+  console.log('[listing.model] status updated:', result.rows[0])
+  return result.rows[0]
+}
+
+const updateListing = async (id, data, userId) => {
+  console.log('[listing.model] updateListing called')
+  console.log('[listing.model] listing id:', id)
+  console.log('[listing.model] data to update:', data)
+
+  const {
+    title,
+    description,
+    category,
+    date_occurred,
+    location_label,
+    latitude,
+    longitude,
+    reward_offered,
+    reward_note
+  } = data
+
+  const sql = `
+    UPDATE listings
+    SET
+      title          = COALESCE($1, title),
+      description    = COALESCE($2, description),
+      category       = COALESCE($3, category),
+      date_occurred  = COALESCE($4, date_occurred),
+      location_label = COALESCE($5, location_label),
+      latitude       = COALESCE($6, latitude),
+      longitude      = COALESCE($7, longitude),
+      reward_offered = COALESCE($8, reward_offered),
+      reward_note    = COALESCE($9, reward_note),
+      updated_at     = NOW()
+      WHERE id = $10
+    AND user_id = $11
+    AND status = 'active'
+    AND deleted_at IS NULL
+    RETURNING
+      id, user_id, type, title, description, category,
+      date_occurred, location_label,
+      reward_offered, reward_note,
+      status, created_at, updated_at
+  `
+
+  const values = [
+    title          || null,
+    description    || null,
+    category       || null,
+    date_occurred  || null,
+    location_label || null,
+    latitude       || null,
+    longitude      || null,
+    reward_offered !== undefined ? reward_offered : null,
+    reward_note    || null,
+    id,
+    userId
+  ]
+
+  console.log('[listing.model] UPDATE values (lat/lng hidden)')
+
+  const result = await pool.query(sql, values)
+
+  if (result.rows.length === 0) {
+    console.log('[listing.model] updateListing — not found or not authorized')
+    return null
+  }
+
+  console.log('[listing.model] listing updated:', result.rows[0])
+  return result.rows[0]
+}
+
+const softDelete = async (id, userId) => {
+  console.log('[listing.model] softDelete called')
+  console.log('[listing.model] listing id:', id)
+  console.log('[listing.model] userId:', userId)
+
+  const sql = `
+    UPDATE listings
+    SET deleted_at = NOW(), updated_at = NOW()
+    WHERE id = $1
+    AND user_id = $2
+    AND status = 'active'
+    AND deleted_at IS NULL
+    RETURNING id, user_id, status, deleted_at
+  `
+
+  const result = await pool.query(sql, [id, userId])
+
+  if (result.rows.length === 0) {
+    console.log('[listing.model] softDelete — not found or not authorized')
+    return null
+  }
+
+  console.log('[listing.model] listing soft deleted:', result.rows[0])
+  return result.rows[0]
+}
+
+const adminRemove = async (id) => {
+  console.log('[listing.model] adminRemove called for listing:', id)
+
+  const sql = `
+    UPDATE listings
+    SET status = 'removed', updated_at = NOW()
+    WHERE id = $1
+    AND deleted_at IS NULL
+    RETURNING id, status, updated_at
+  `
+
+  const result = await pool.query(sql, [id])
+
+  console.log('[listing.model] adminRemove result:', result.rows[0])
+  return result.rows[0] || null
+}
+
+const findOppositeActive = async (type, limit = 500) => {
+  console.log('[listing.model] findOppositeActive called')
+  console.log('[listing.model] looking for opposite of type:', type)
+
+  const oppositeType = type === 'lost' ? 'found' : 'lost'
+
+  const sql = `
+    SELECT
+      id, user_id, type, title, description, category,
+      date_occurred, location_label,
+      latitude, longitude,
+      created_at
+    FROM listings
+    WHERE type = $1
+    AND status = 'active'
+    AND deleted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT $2
+  `
+
+  const result = await pool.query(sql, [oppositeType, limit])
+  console.log('[listing.model] opposite listings found:', result.rows.length)
+  return result.rows
+}
+
+module.exports = {
+  createListing,
+  saveImage,
+  getImages,
+  findById,
+  findAll,
+  findByUserId,
+  updateStatus,
+  updateListing,
+  softDelete,
+  adminRemove,
+  findOppositeActive
+}

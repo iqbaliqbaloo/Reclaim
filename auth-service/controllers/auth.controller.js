@@ -34,8 +34,8 @@ const login = async (req,res)=>{
     const {accessToken,refreshToken,user} = await authService.loginUser(req.body.email,req.body.password)
     res.cookie('refreshToken',refreshToken,{
         httpOnly:true,
-        secure:false,
-        sameSite:'Lax',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
         maxAge:7*24*60*60*1000
     })
      console.log('[auth.controller] refresh token set as httpOnly cookie')
@@ -58,8 +58,8 @@ const logout = async (req,res)=>{
         console.log('[auth.controller] logout called')
     console.log('[auth.controller] req.user:', req.user)
     console.log('[auth.controller] req.cookies.refreshToken present:', !!req.cookies.refreshToken)
-    await authService.logoutUser(req.user.userId,req.cookies.refreshToken)
-    res.clearCookie(refreshToken)
+    await authService.logoutUser(req.user._id,req.cookies.refreshToken)
+    res.clearCookie('refreshToken')
     console.log('[auth.controller] refreshToken cookie cleared')
      return res.status(200).json({
       success: true,
@@ -82,8 +82,8 @@ const refresh =async(req,res)=>{
     const {accessToken,refreshToken} =await authService.refreshAccessToken(req.cookies.refreshToken)
     res.cookie('refreshToken',refreshToken,{
         httpOnly:true,
-        secure:false,
-        sameSite:'Lax',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
         maxAge:7 * 24 * 60 * 60 * 1000
     })
     console.log('[auth.controller] new tokens issued and cookie set')
@@ -158,11 +158,9 @@ const resetPassword =async(req,res)=>{
 }
 const googleAuth =(req,res,next)=>{
    console.log('[auth.controller] googleAuth — starting OAuth flow')
-   passport.authenticate('google',{
-    scope:['profile','email'],
-    state
-   })(req,res,next
-   )
+  passport.authenticate('google', {
+  scope: ['profile', 'email']
+})(req, res, next)
 }
 const googleCallback =(req,res,next)=>{
   console.log('[auth.controller] googleCallback called')
@@ -178,8 +176,8 @@ const googleCallback =(req,res,next)=>{
     console.log('[auth.controller] Google OAuth success for user:', user.email)
      res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure:  false,
-      sameSite: 'Lax',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
       maxAge:   7 * 24 * 60 * 60 * 1000
     })
     console.log('[auth.controller] redirecting to frontend with token')
@@ -197,10 +195,31 @@ const getMe =async(req,res)=>{
     message: 'User info retrieved'
   })
 }
+
+const logoutAll = async (req, res) => {
+    try {
+        console.log('[auth.controller] logoutAll called')
+        console.log('[auth.controller] req.user:', req.user)
+        await authService.logoutAllDevices(req.user._id)
+        res.clearCookie('refreshToken')
+        return res.status(200).json({
+            success: true,
+            data: null,
+            message: 'Logged out from all devices successfully'
+        })
+    } catch(err) {
+        console.error('[auth.controller] logoutAll error:', err.message)
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            error: err.message
+        })
+    }
+}
 module.exports = {
   register,
   login,
   logout,
+  logoutAll,
   refresh,
   verifyEmail,
   forgotPassword,

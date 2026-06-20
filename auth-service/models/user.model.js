@@ -15,11 +15,11 @@ const userSchmea = new mongoose.Schema(
         },
         role:{
             type:String,
-            enum:['visitor','role','admin'],
+            enum:['visitor','user','admin'],
             default:'visitor'
         },
         isEmailVerified:{
-            type:Booleand,
+            type:Boolean,
             default:false
         },
         emailVerifyToken:{
