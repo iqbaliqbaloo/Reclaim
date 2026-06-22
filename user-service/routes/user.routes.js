@@ -33,7 +33,7 @@ router.get(
   protect,
   controller.checkCanPost
 )
-
+router.get('/internal/age/:authId', controller.getAccountAge)
 router.post(
   '/internal/increment-post-count',
   protect,

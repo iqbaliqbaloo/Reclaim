@@ -143,4 +143,78 @@ export interface Match {
   status:           MatchStatus
   created_at:       string
   updated_at:       string
-}                                                                                                                               
+}                              
+
+// ─── Claim ────────────────────────────────────────────────────────────────────
+
+export type ClaimStatus = 'pending' | 'approved' | 'rejected' | 'expired'
+
+export interface Claim {
+  id:                 number
+  listing_id:         number
+  listing_user_id:    string
+  claimant_id:        string
+  claim_description:  string
+  status:             ClaimStatus
+  expires_at:         string
+  created_at:         string
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export interface Conversation {
+  id:                number
+  listing_id:        number
+  lost_user_id:      string
+  found_user_id:     string
+  claim_id:          number
+  lost_msg_count:    number
+  found_msg_count:   number
+  lost_confirmed:    boolean | null
+  found_confirmed:   boolean | null
+  resolution_status: string
+  status:            'active' | 'closed'
+  created_at:        string
+  updated_at:        string
+}
+
+export interface Message {
+  id:              number
+  conversation_id: number
+  sender_id:       string
+  body:            string
+  read_at:         string | null
+  created_at:      string
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+export interface Notification {
+  id:         number
+  user_id:    string
+  type:       string
+  title:      string
+  body:       string
+  data:       Record<string, any>
+  is_read:    boolean
+  created_at: string
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+export interface Report {
+  id:          number
+  reporter_id: string
+  target_type: 'listing' | 'user' | 'chat'
+  target_id:   string
+  reason:      string
+  status:      'open' | 'resolved' | 'dismissed'
+  priority?:   number
+  created_at:  string
+}
+
+export interface AdminStats {
+  totalListings: number
+  openReports:   number
+  fetchedAt:     string
+}

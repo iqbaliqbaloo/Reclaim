@@ -263,6 +263,17 @@ const unbanUser = async (req, res) => {
   }
 }
 
+const getAccountAge = async (req, res) => {
+  try {
+    const user = await userModel.findByAuthId(req.params.authId)
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' })
+
+    const days = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000*60*60*24))
+    return res.status(200).json({ success: true, data: { days_since_created: days } })
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message })
+  }
+}
 module.exports = {
   createProfile,
   getMyProfile,
@@ -274,5 +285,6 @@ module.exports = {
   updateRole,
   getAllUsers,
   banUser,
-  unbanUser
+  unbanUser,
+  getAccountAge
 }

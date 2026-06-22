@@ -55,12 +55,21 @@ export const matchApi: AxiosInstance = axios.create({
 })
 
 export const claimApi: AxiosInstance = axios.create({
-  baseURL:         process.env.NEXT_PUBLIC_CLAIM_URL   || 'http://localhost:4006',
+  baseURL:         process.env.NEXT_PUBLIC_CLAIM_URL || 'http://localhost:4006',
   withCredentials: true
 })
 
 export const chatApi: AxiosInstance = axios.create({
-  baseURL:         process.env.NEXT_PUBLIC_CHAT_URL    || 'http://localhost:4007',
+  baseURL:         process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:4007',
+  withCredentials: true
+})
+export const notificationApi: AxiosInstance = axios.create({
+  baseURL:         process.env.NEXT_PUBLIC_NOTIFICATION_URL || 'http://localhost:4008',
+  withCredentials: true
+})
+
+export const adminApi: AxiosInstance = axios.create({
+  baseURL:         process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:4010',
   withCredentials: true
 })
 
@@ -71,7 +80,7 @@ export const mediaApi: AxiosInstance = axios.create({
 
 const allInstances: AxiosInstance[] = [
   authApi, userApi, listingApi, matchApi,
-  claimApi, chatApi, mediaApi
+  claimApi, chatApi, notificationApi, adminApi, mediaApi
 ]
 
 // ─── Request interceptor ──────────────────────────────────────────────────────

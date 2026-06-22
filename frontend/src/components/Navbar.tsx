@@ -3,7 +3,7 @@
 import Link          from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth }   from '@/store/authStore'
-
+import NotificationBell from './NotificationBell'
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
   const router = useRouter()
