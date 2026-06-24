@@ -1,38 +1,20 @@
-/*
-  ============================================================
-  AXIOS INSTANCES
-
-  'use client' not needed here — this is utility code
-  imported by client components
-
-  Access token stored in memory (not localStorage)
-  Refresh token in httpOnly cookie (sent automatically)
-  ============================================================
-*/
-
 import axios, {
   AxiosInstance,
   AxiosResponse,
   InternalAxiosRequestConfig
 } from 'axios'
 
-// ─── Token in memory ──────────────────────────────────────────────────────────
-
 let accessToken: string | null = null
 
 export const setAccessToken = (token: string): void => {
-  console.log('[axios] access token set')
   accessToken = token
 }
 
 export const getAccessToken = (): string | null => accessToken
 
 export const clearAccessToken = (): void => {
-  console.log('[axios] access token cleared')
   accessToken = null
 }
-
-// ─── Instances ────────────────────────────────────────────────────────────────
 
 export const authApi: AxiosInstance = axios.create({
   baseURL:         process.env.NEXT_PUBLIC_AUTH_URL    || 'http://localhost:4001',
@@ -63,6 +45,7 @@ export const chatApi: AxiosInstance = axios.create({
   baseURL:         process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:4007',
   withCredentials: true
 })
+
 export const notificationApi: AxiosInstance = axios.create({
   baseURL:         process.env.NEXT_PUBLIC_NOTIFICATION_URL || 'http://localhost:4008',
   withCredentials: true
@@ -78,22 +61,43 @@ export const mediaApi: AxiosInstance = axios.create({
   withCredentials: true
 })
 
+// Singleton refresh — all concurrent 401s share one refresh call.
+// If a refresh is in flight, every new caller waits for the same promise
+// instead of firing a second refresh (which would trigger token-reuse detection
+// on the server and wipe the entire session).
+let refreshPromise: Promise<string> | null = null
+
+export const doRefresh = (): Promise<string> => {
+  if (!refreshPromise) {
+    refreshPromise = authApi
+      .post<{ success: boolean; data: { accessToken: string } }>('/api/auth/refresh')
+      .then(res => {
+        const token = res.data.data.accessToken
+        setAccessToken(token)
+        return token
+      })
+      .catch(err => {
+        clearAccessToken()
+        throw err
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
 const allInstances: AxiosInstance[] = [
   authApi, userApi, listingApi, matchApi,
   claimApi, chatApi, notificationApi, adminApi, mediaApi
 ]
 
-// ─── Request interceptor ──────────────────────────────────────────────────────
-
 const addAuthHeader = (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`
-    console.log('[axios] auth header added:', config.url)
   }
   return config
 }
-
-// ─── Response interceptor ─────────────────────────────────────────────────────
 
 const createResponseInterceptor = (instance: AxiosInstance): void => {
   instance.interceptors.response.use(
@@ -102,26 +106,22 @@ const createResponseInterceptor = (instance: AxiosInstance): void => {
       const original = error.config
 
       if (error.response?.status === 401 && !original._retry) {
-        // Prevent retry loop on the refresh endpoint itself
+        // Don't retry the refresh call itself
         if (original.url?.includes('/auth/refresh')) {
-          clearAccessToken()
           return Promise.reject(error)
         }
 
         original._retry = true
-        console.log('[axios] 401 — refreshing token...')
 
         try {
-          const res      = await authApi.post('/api/auth/refresh')
-          const newToken = res.data.data.accessToken
-          setAccessToken(newToken)
+          const newToken = await doRefresh()
           original.headers.Authorization = `Bearer ${newToken}`
           return instance(original)
         } catch {
-          clearAccessToken()
           if (typeof window !== 'undefined') {
             window.location.href = '/login'
           }
+          return Promise.reject(error)
         }
       }
 
@@ -130,7 +130,6 @@ const createResponseInterceptor = (instance: AxiosInstance): void => {
   )
 }
 
-// apply to all
 allInstances.forEach(instance => {
   instance.interceptors.request.use(addAuthHeader, (e) => Promise.reject(e))
   createResponseInterceptor(instance)

@@ -1,9 +1,3 @@
-/*
-  ============================================================
-  AUTH STORE — React Context
-  ============================================================
-*/
-
 'use client'
 
 import {
@@ -19,7 +13,8 @@ import {
 import {
   authApi,
   setAccessToken,
-  clearAccessToken
+  clearAccessToken,
+  doRefresh
 } from '@/utils/axios'
 
 import type {
@@ -38,19 +33,14 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const hasChecked = useRef(false)
 
   const checkAuth = async (): Promise<void> => {
-    console.log('[authStore] checkAuth called')
     try {
-      const res             = await authApi.post<ApiResponse<{ accessToken: string }>>('/api/auth/refresh')
-      const { accessToken } = res.data.data!
-      setAccessToken(accessToken)
+      await doRefresh()
 
       const meRes    = await authApi.get<ApiResponse<AuthUser>>('/api/auth/me')
       const userData = meRes.data.data!
-      console.log('[authStore] session restored:', userData)
       setUser(userData)
       setIsAuthenticated(true)
     } catch {
-      console.log('[authStore] no session')
       setUser(null)
       setIsAuthenticated(false)
     } finally {
@@ -65,7 +55,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   }, [])
 
   const login = async (email: string, password: string): Promise<AuthUser> => {
-    console.log('[authStore] login:', email)
     const res = await authApi.post<ApiResponse<{ accessToken: string; user: AuthUser }>>(
       '/api/auth/login', { email, password }
     )
@@ -77,7 +66,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   }
 
   const loginWithGoogle = async (token: string): Promise<AuthUser> => {
-    console.log('[authStore] loginWithGoogle')
     setAccessToken(token)
     const res      = await authApi.get<ApiResponse<AuthUser>>('/api/auth/me')
     const userData = res.data.data!
@@ -87,7 +75,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   }
 
   const logout = async (): Promise<void> => {
-    console.log('[authStore] logout')
     try { await authApi.post('/api/auth/logout') } catch {}
     clearAccessToken()
     setUser(null)

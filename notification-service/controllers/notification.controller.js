@@ -1,22 +1,17 @@
 const notificationService = require('../services/notification.service')
 
-// ─── Get my notifications ─────────────────────────────────────────────────────
-
 const getMyNotifications = async (req, res) => {
   try {
-    console.log('[notification.controller] getMyNotifications for:', req.user.userId)
-    const result = await notificationService.getNotificationsForUser(req.user.userId)
+    const result = await notificationService.getNotificationsForUser(req.user._id)
     return res.status(200).json({ success: true, data: result, message: `${result.length} notifications` })
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message })
   }
 }
 
-// ─── Mark read ────────────────────────────────────────────────────────────────
-
 const markRead = async (req, res) => {
   try {
-    await notificationService.markRead(req.user.userId, req.params.id)
+    await notificationService.markRead(req.user._id, req.params.id)
     return res.status(200).json({ success: true, data: null, message: 'Marked as read' })
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message })
@@ -25,18 +20,15 @@ const markRead = async (req, res) => {
 
 const markAllRead = async (req, res) => {
   try {
-    await notificationService.markAllRead(req.user.userId)
+    await notificationService.markAllRead(req.user._id)
     return res.status(200).json({ success: true, data: null, message: 'All marked as read' })
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message })
   }
 }
 
-// ─── Internal handlers (called by other services) ─────────────────────────────
-
 const handleNewMatch = async (req, res) => {
   try {
-    console.log('[notification.controller] handleNewMatch:', req.body)
     await notificationService.handleNewMatch(req.body)
     return res.status(200).json({ success: true, data: null, message: 'Notified' })
   } catch (err) {
@@ -46,7 +38,6 @@ const handleNewMatch = async (req, res) => {
 
 const handleClaimReceived = async (req, res) => {
   try {
-    console.log('[notification.controller] handleClaimReceived:', req.body)
     await notificationService.handleClaimReceived(req.body)
     return res.status(200).json({ success: true, data: null, message: 'Notified' })
   } catch (err) {

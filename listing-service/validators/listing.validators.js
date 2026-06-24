@@ -3,20 +3,14 @@ const { body, query, validationResult } = require('express-validator')
 const handleValidation = (req, res, next) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    console.log('[validators] validation failed:', errors.array())
     return res.status(400).json({
       success: false,
       error:   'Validation failed',
-      details: errors.array().map(e => ({
-        field:   e.path,
-        message: e.msg
-      }))
+      details: errors.array().map(e => ({ field: e.path, message: e.msg }))
     })
   }
-  console.log('[validators] validation passed')
   next()
 }
-
 
 const createListingValidator = [
   body('type')
@@ -34,10 +28,8 @@ const createListingValidator = [
 
   body('category')
     .notEmpty().withMessage('Category is required')
-    .isIn([
-      'electronics', 'wallet', 'keys', 'pets',
-      'bags', 'documents', 'clothing', 'other'
-    ]).withMessage('Invalid category'),
+    .isIn(['electronics', 'wallet', 'keys', 'pets', 'bags', 'documents', 'clothing', 'other'])
+    .withMessage('Invalid category'),
 
   body('date_occurred')
     .notEmpty().withMessage('Date is required')
@@ -68,23 +60,18 @@ const createListingValidator = [
   handleValidation
 ]
 
-
 const updateListingValidator = [
   body('title')
     .optional()
     .isLength({ max: 120 }).withMessage('Title max 120 characters')
     .trim(),
 
-  body('description')
-    .optional()
-    .trim(),
+  body('description').optional().trim(),
 
   body('category')
     .optional()
-    .isIn([
-      'electronics', 'wallet', 'keys', 'pets',
-      'bags', 'documents', 'clothing', 'other'
-    ]).withMessage('Invalid category'),
+    .isIn(['electronics', 'wallet', 'keys', 'pets', 'bags', 'documents', 'clothing', 'other'])
+    .withMessage('Invalid category'),
 
   body('date_occurred')
     .optional()
@@ -115,7 +102,6 @@ const updateListingValidator = [
   handleValidation
 ]
 
-
 const searchValidator = [
   query('type')
     .optional()
@@ -123,10 +109,8 @@ const searchValidator = [
 
   query('category')
     .optional()
-    .isIn([
-      'electronics', 'wallet', 'keys', 'pets',
-      'bags', 'documents', 'clothing', 'other'
-    ]).withMessage('Invalid category'),
+    .isIn(['electronics', 'wallet', 'keys', 'pets', 'bags', 'documents', 'clothing', 'other'])
+    .withMessage('Invalid category'),
 
   query('page')
     .optional()
@@ -139,8 +123,4 @@ const searchValidator = [
   handleValidation
 ]
 
-module.exports = {
-  createListingValidator,
-  updateListingValidator,
-  searchValidator
-}
+module.exports = { createListingValidator, updateListingValidator, searchValidator }

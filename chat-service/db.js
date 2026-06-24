@@ -8,13 +8,11 @@ const pool = new Pool({
   database: process.env.POSTGRES_DB       || 'reclaim_chat'
 })
 
-console.log('[db] connecting to:', process.env.POSTGRES_DB || 'reclaim_chat')
-
 pool.connect((err, client, release) => {
   if (err) { console.error('[db] failed:', err.message); return }
-  console.log('[db] connected:', client.database)
   release()
 })
 
 pool.on('error', err => console.error('[db] pool error:', err.message))
+
 module.exports = pool

@@ -1,12 +1,3 @@
-/*
-  ============================================================
-  ADMIN DASHBOARD — /admin
-  Overview with stats and quick links
-
-  DATA FLOW: GET /admin/stats
-  ============================================================
-*/
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -22,21 +13,15 @@ export default function AdminPage() {
   const router = useRouter()
 
   const [stats,        setStats]        = useState<AdminStats | null>(null)
-  const [statsLoading,  setStatsLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
 
   useEffect(() => {
-    if (!isLoading && user?.role !== 'admin') {
-      router.push('/')
-      return
-    }
-    if (user?.role === 'admin') {
-      loadStats()
-    }
+    if (!isLoading && user?.role !== 'admin') { router.push('/'); return }
+    if (user?.role === 'admin') loadStats()
   }, [isLoading, user])
 
   const loadStats = async () => {
     try {
-      console.log('[Admin] loading stats')
       const res = await adminApi.get<{ success: boolean; data: AdminStats }>('/admin/stats')
       setStats(res.data.data)
     } catch (err: any) {
@@ -49,42 +34,39 @@ export default function AdminPage() {
   if (isLoading || user?.role !== 'admin') return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Panel</h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-hi">Admin Panel</h1>
+          <p className="text-sm text-lo mt-1">System overview and management</p>
+        </div>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-3xl font-bold text-blue-600">
-              {statsLoading ? '...' : stats?.totalListings ?? 0}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">Total listings</p>
+          <div className="stat-card">
+            <div className="stat-number">{statsLoading ? '—' : stats?.totalListings ?? 0}</div>
+            <div className="text-xs text-lo mt-1">Total listings</div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-3xl font-bold text-red-600">
-              {statsLoading ? '...' : stats?.openReports ?? 0}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">Open reports</p>
+          <div className="stat-card" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.1))', borderColor: 'rgba(239,68,68,0.2)' }}>
+            <div className="text-3xl font-bold text-danger">{statsLoading ? '—' : stats?.openReports ?? 0}</div>
+            <div className="text-xs text-lo mt-1">Open reports</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Link
-            href="/admin/reports"
-            className="bg-white rounded-xl border border-gray-200 p-5
-                       hover:border-blue-300 hover:shadow-sm"
-          >
-            <p className="text-lg font-semibold text-gray-800 mb-1">📋 Reports queue</p>
-            <p className="text-sm text-gray-500">Review flagged listings, chats, and users</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link href="/admin/reports"
+            className="card card-hover p-6 group"
+            style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(255,255,255,0.02))' }}>
+            <div className="text-2xl mb-3">🚩</div>
+            <p className="font-semibold text-hi mb-1 group-hover:text-accent transition-colors">Reports queue</p>
+            <p className="text-sm text-lo">Review flagged listings, chats, and users</p>
           </Link>
-          <Link
-            href="/admin/users"
-            className="bg-white rounded-xl border border-gray-200 p-5
-                       hover:border-blue-300 hover:shadow-sm"
-          >
-            <p className="text-lg font-semibold text-gray-800 mb-1">👥 Manage users</p>
-            <p className="text-sm text-gray-500">Ban or unban users</p>
+          <Link href="/admin/users"
+            className="card card-hover p-6 group"
+            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(255,255,255,0.02))' }}>
+            <div className="text-2xl mb-3">👥</div>
+            <p className="font-semibold text-hi mb-1 group-hover:text-accent transition-colors">Manage users</p>
+            <p className="text-sm text-lo">Ban, unban, and review user accounts</p>
           </Link>
         </div>
       </div>

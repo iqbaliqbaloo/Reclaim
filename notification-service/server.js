@@ -7,7 +7,7 @@ const { processEmailQueue } = require('./services/notification.service')
 const PORT = process.env.PORT || 4008
 
 app.listen(PORT, () => {
-  console.log(`[server] notification-service listening on port ${PORT}`)
+  console.error(`[server] notification-service listening on port ${PORT}`)
 })
 
 // process email queue every 1 minute — max 50 emails per run

@@ -2,8 +2,7 @@ const adminService = require('../services/admin.service')
 
 const submitReport = async (req, res) => {
   try {
-    console.log('[admin.controller] submitReport:', req.body)
-    const result = await adminService.submitReport(req.user.userId, req.body)
+    const result = await adminService.submitReport(req.user._id, req.body)
     return res.status(201).json({ success: true, data: result, message: 'Report submitted' })
   } catch (err) {
     return res.status(err.statusCode || 500).json({ success: false, error: err.message })
@@ -21,7 +20,7 @@ const getReportsQueue = async (req, res) => {
 
 const resolveReport = async (req, res) => {
   try {
-    const result = await adminService.resolveReport(req.params.id, req.user.userId, req.body.action || 'resolved')
+    const result = await adminService.resolveReport(req.params.id, req.user._id, req.body.action || 'resolved')
     return res.status(200).json({ success: true, data: result, message: 'Report resolved' })
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message })
@@ -30,7 +29,6 @@ const resolveReport = async (req, res) => {
 
 const banUser = async (req, res) => {
   try {
-    console.log('[admin.controller] banUser:', req.params.id)
     const token  = req.headers.authorization?.split(' ')[1]
     const result = await adminService.banUser(req.params.id, req.body.reason, token)
     return res.status(200).json({ success: true, data: result, message: 'User banned' })
@@ -51,7 +49,6 @@ const unbanUser = async (req, res) => {
 
 const removeListing = async (req, res) => {
   try {
-    console.log('[admin.controller] removeListing:', req.params.id)
     const token  = req.headers.authorization?.split(' ')[1]
     const result = await adminService.removeListing(req.params.id, token)
     return res.status(200).json({ success: true, data: result, message: 'Listing removed' })

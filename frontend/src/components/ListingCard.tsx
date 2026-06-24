@@ -1,60 +1,54 @@
 import Link from 'next/link'
+import type { Listing } from '@/types'
 
-export default function Home() {
+interface Props {
+  listing: Listing
+}
+
+export default function ListingCard({ listing }: Props) {
+  const typeBadge   = listing.type === 'lost' ? 'badge-lost' : 'badge-found'
+  const statusBadge = `badge-${listing.status}`
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-
-        <h1 className="text-4xl font-bold text-gray-800 mb-4">
-          Lost something? Found something?
-        </h1>
-        <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
-          Reclaim connects people who lost items with people who found them.
-          AI matching helps reunite items with their owners.
-        </p>
-
-        <div className="flex gap-4 justify-center">
-          <Link
-            href="/listings/create"
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl
-                       text-sm font-medium hover:bg-blue-700"
-          >
-            Post an item
-          </Link>
-          <Link
-            href="/listings"
-            className="border border-gray-300 text-gray-600 px-6 py-3
-                       rounded-xl text-sm font-medium hover:bg-gray-50"
-          >
-            Browse listings
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-3 gap-6 mt-16 text-left">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="text-2xl mb-3">📝</div>
-            <h3 className="font-semibold text-gray-800 mb-1">Post your item</h3>
-            <p className="text-sm text-gray-500">
-              Describe what you lost or found with photos and location
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="text-2xl mb-3">🤖</div>
-            <h3 className="font-semibold text-gray-800 mb-1">AI matching</h3>
-            <p className="text-sm text-gray-500">
-              Our algorithm automatically finds possible matches
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="text-2xl mb-3">🤝</div>
-            <h3 className="font-semibold text-gray-800 mb-1">Connect safely</h3>
-            <p className="text-sm text-gray-500">
-              Chat privately after claim verification — no personal info shared
-            </p>
-          </div>
-        </div>
-
+    <Link
+      href={`/listings/${listing.id}`}
+      className="card card-hover block p-4 group"
+    >
+      {/* Image placeholder strip if no images */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className={`badge ${typeBadge}`}>
+          {listing.type === 'lost' ? 'Lost' : 'Found'}
+        </span>
+        <span className={`badge ${statusBadge}`}>
+          {listing.status}
+        </span>
+        {listing.reward_offered && (
+          <span className="badge badge-reward">Reward</span>
+        )}
       </div>
-    </div>
+
+      <h3 className="text-sm font-semibold text-hi mb-1.5 line-clamp-1 group-hover:text-accent transition-colors duration-200">
+        {listing.title}
+      </h3>
+      <p className="text-xs text-lo line-clamp-2 mb-4 leading-relaxed">
+        {listing.description}
+      </p>
+
+      <div className="flex items-end justify-between">
+        <div className="space-y-1">
+          <p className="text-xs text-mid flex items-center gap-1">
+            <span>📍</span>
+            <span className="truncate max-w-[140px]">{listing.location_label}</span>
+          </p>
+          <p className="text-xs text-lo">
+            {new Date(listing.date_occurred).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
+        <span className="text-xs text-lo capitalize px-2 py-1 rounded-md"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {listing.category}
+        </span>
+      </div>
+    </Link>
   )
 }

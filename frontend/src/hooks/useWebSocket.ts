@@ -1,94 +1,76 @@
-/*
-  ============================================================
-  USE WEBSOCKET HOOK
-
-  Connects to chat-service WebSocket
-  Handles incoming messages, typing indicators
-  Auto-reconnects on disconnect
-
-  USAGE:
-  const { sendMessage, sendTyping, isConnected } = useWebSocket(onMessage, onTyping)
-  ============================================================
-*/
-
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getAccessToken } from '@/utils/axios'
+import { getAccessToken, doRefresh } from '@/utils/axios'
 
 interface WSMessage {
   type: string
   data: any
 }
 
+const BASE_URL = (process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:4007')
+  .replace(/^http/, 'ws')
+
 export function useWebSocket(
   onNewMessage: (data: any) => void,
   onTyping:     (data: any) => void
 ) {
-  const wsRef           = useRef<WebSocket | null>(null)
+  const wsRef         = useRef<WebSocket | null>(null)
+  const retryRef      = useRef(0)
+  const destroyedRef  = useRef(false)
   const [isConnected, setIsConnected] = useState(false)
 
-  useEffect(() => {
-    const token = getAccessToken()
+  const connect = useCallback(async () => {
+    if (destroyedRef.current) return
+
+    let token = getAccessToken()
     if (!token) {
-      console.log('[useWebSocket] no token — skipping connection')
-      return
+      try { token = await doRefresh() } catch { return }
     }
 
-    const wsUrl = (process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:4007')
-      .replace('http', 'ws')
-
-    console.log('[useWebSocket] connecting to:', wsUrl)
-
-    const ws = new WebSocket(`${wsUrl}?token=${token}`)
+    const ws = new WebSocket(`${BASE_URL}?token=${token}`)
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log('[useWebSocket] connected')
       setIsConnected(true)
+      retryRef.current = 0
     }
 
     ws.onmessage = (event) => {
       try {
         const msg: WSMessage = JSON.parse(event.data)
-        console.log('[useWebSocket] received:', msg.type)
-
-        if (msg.type === 'new_message') {
-          onNewMessage(msg.data)
-        }
-        if (msg.type === 'typing') {
-          onTyping(msg.data)
-        }
-      } catch (err) {
-        console.error('[useWebSocket] parse error:', err)
+        if (msg.type === 'new_message') onNewMessage(msg.data)
+        if (msg.type === 'typing')      onTyping(msg.data)
+      } catch {
+        // ignore malformed frames
       }
     }
 
     ws.onclose = () => {
-      console.log('[useWebSocket] disconnected')
       setIsConnected(false)
+      if (destroyedRef.current) return
+      const delay = Math.min(1000 * 2 ** retryRef.current, 30000)
+      retryRef.current += 1
+      setTimeout(connect, delay)
     }
 
-    ws.onerror = (err) => {
-      console.error('[useWebSocket] error:', err)
-    }
+    // onerror always fires before onclose — just let onclose handle the retry
+    ws.onerror = () => {}
 
+  }, [onNewMessage, onTyping])
+
+  useEffect(() => {
+    destroyedRef.current = false
+    connect()
     return () => {
-      console.log('[useWebSocket] cleaning up connection')
-      ws.close()
+      destroyedRef.current = true
+      wsRef.current?.close()
     }
   }, [])
 
   const sendMessage = useCallback((conversationId: number, body: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('[useWebSocket] sending message:', conversationId)
-      wsRef.current.send(JSON.stringify({
-        type: 'message',
-        conversationId,
-        body
-      }))
-    } else {
-      console.log('[useWebSocket] not connected — message not sent via WS')
+      wsRef.current.send(JSON.stringify({ type: 'message', conversationId, body }))
     }
   }, [])
 

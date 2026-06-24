@@ -10,12 +10,9 @@ const pool = new Pool({
 pool.connect((err, client, release) => {
   if (err) {
     console.error('[db] PostgreSQL connection failed:', err.message)
-    console.error('[db] make sure PostgreSQL is running on localhost:5432')
     return
   }
-  console.log('[db] PostgreSQL connected successfully')
-  console.log('[db] database:', client.database)
-  release() // release connection back to pool
+  release()
 })
 pool.on('error', (err) => {
   console.error('[db] unexpected PostgreSQL pool error:', err.message)

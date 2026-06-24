@@ -8,16 +8,11 @@ const pool = new Pool({
   database: process.env.POSTGRES_DB       || 'reclaim_matches'
 })
 
-console.log('[db] PostgreSQL pool created for match-service')
-console.log('[db] connecting to database:', process.env.POSTGRES_DB || 'reclaim_matches')
-
 pool.connect((err, client, release) => {
   if (err) {
     console.error('[db] PostgreSQL connection failed:', err.message)
-    console.error('[db] make sure reclaim_matches database exists')
     return
   }
-  console.log('[db] PostgreSQL connected — database:', client.database)
   release()
 })
 

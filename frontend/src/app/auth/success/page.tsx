@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect }  from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth }    from '@/store/authStore'
-import { Suspense }   from 'react'
 
 function AuthSuccessContent() {
   const { loginWithGoogle } = useAuth()
@@ -12,31 +11,29 @@ function AuthSuccessContent() {
 
   useEffect(() => {
     const token = searchParams.get('token')
-    console.log('[AuthSuccess] token:', token ? 'PRESENT' : 'MISSING')
-
-    if (!token) {
-      router.push('/login?error=auth_failed')
-      return
-    }
-
+    if (!token) { router.push('/login?error=auth_failed'); return }
     loginWithGoogle(token)
-      .then(user => {
-        console.log('[AuthSuccess] complete, role:', user.role)
-        router.push('/dashboard')
-      })
+      .then(() => router.push('/dashboard'))
       .catch(() => router.push('/login?error=auth_failed'))
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Completing login...</p>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center animate-fade-in">
+        <div className="text-4xl mb-4 animate-pulse">🔐</div>
+        <p className="text-mid text-sm">Completing sign in…</p>
+      </div>
     </div>
   )
 }
 
 export default function AuthSuccessPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400 text-sm">Loading...</p></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-mid text-sm">Loading…</p>
+      </div>
+    }>
       <AuthSuccessContent />
     </Suspense>
   )

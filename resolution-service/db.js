@@ -5,7 +5,7 @@ const pool = new Pool({
   port:     parseInt(process.env.POSTGRES_PORT) || 5432,
   user:     process.env.POSTGRES_USER     || 'postgres',
   password: process.env.POSTGRES_PASSWORD || 'postgres',
-  database: process.env.POSTGRES_DB       || 'reclaim_claims'
+  database: process.env.POSTGRES_DB       || 'reclaim_resolution'
 })
 
 pool.connect((err, client, release) => {

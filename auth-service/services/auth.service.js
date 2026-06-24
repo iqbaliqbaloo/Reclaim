@@ -1,351 +1,278 @@
-const jwt = require('jsonwebtoken')
-const {v4:uuidv4} = require('uuid')
-const axios = require('axios')
-const User= require('../models/user.model')
-const {sendEmail} = require('./email.service')
+const jwt    = require('jsonwebtoken')
+const { v4: uuidv4 } = require('uuid')
+const axios  = require('axios')
+const User   = require('../models/user.model')
+const { sendEmail } = require('./email.service')
 
-const generateTokens =(id) =>{
-    console.log('[auth.service] generating tokens for user:', id)
-    const accessToken = jwt.sign({id},
-        process.env.JWT_SECRET,
-        {expiresIn:'15m'}
-    )
-    const refreshToken = jwt.sign(
-        {id},
-        process.env.JWT_REFRESH_SECRET,
-        {expiresIn:'7d'}
-    )
-    console.log('[auth.service] tokens generated successfully')
-  console.log('[auth.service] access token expires: 15 minutes')
-  console.log('[auth.service] refresh token expires: 7 days')
-
-  return {accessToken,refreshToken}
+const generateTokens = (id, email, role) => {
+  const accessToken = jwt.sign({ id, email, role }, process.env.JWT_SECRET, { expiresIn: '15m' })
+  const refreshToken = jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' })
+  return { accessToken, refreshToken }
 }
+
 const callUserService = async (method, path, data) => {
   try {
-    console.log('[auth.service] calling user-service:', method, path)
-    console.log('[auth.service] data sent to user-service:', data)
-
     const response = await axios({
       method,
       url:     `${process.env.USER_SERVICE_URL}${path}`,
       data,
       timeout: 5000,
-       headers: { 'x-internal-secret': process.env.INTERNAL_SECRET }
+      headers: { 'x-internal-secret': process.env.INTERNAL_SECRET }
     })
-
-    console.log('[auth.service] user-service response:', response.data)
     return response.data
   } catch (err) {
     console.error('[auth.service] user-service call failed:', err.message)
-    // do not throw — user-service failure should not break auth
   }
 }
-const registerUser = async (data)=>{
-    const {email,password} = data
-    console.log('[auth.service] registerUser called')
-  console.log('[auth.service] data received:', { email, password: '***hidden***' })
-  const existing = await User.findOne({email})
-  console.log('[auth.service] existing user check:', existing ? 'FOUND — duplicate' : 'NOT FOUND — ok')
-  if(existing){
+
+const registerUser = async (data) => {
+  const { email, password } = data
+  const existing = await User.findOne({ email })
+  if (existing) {
     const err = new Error('Email already registered')
-    err.statusCode=409
+    err.statusCode = 409
     throw err
   }
-  const emailVerifyToken=uuidv4()
-   console.log('[auth.service] email verify token generated:', emailVerifyToken)
-
-   const user = new User({
-    email,
-    password,
-    emailVerifyToken
-   })
-   await user.save()
-   console.log('[auth.service] user saved to MongoDB')
-  console.log('[auth.service] user._id:', user._id)
-  console.log('[auth.service] user.role:', user.role)
+  const emailVerifyToken = uuidv4()
+  const user = new User({ email, password, emailVerifyToken })
+  await user.save()
   await callUserService('post', '/api/users/internal/create-profile', {
-  authId: user._id.toString(),
-  email:  user.email,
-  role:   user.role
-})
-console.log('[auth.service] user-service profile creation called')
-  await sendVerificationEmail(email,emailVerifyToken)
-
-  const userResponse ={
-    _id: user._id,
-    email:user.email,
-    role: user.role,
-    isEmailVerified:user.isEmailVerified
+    authId: user._id.toString(),
+    email:  user.email,
+    role:   user.role
+  })
+  await sendVerificationEmail(email, emailVerifyToken)
+  return {
+    user: { _id: user._id, email: user.email, role: user.role, isEmailVerified: user.isEmailVerified },
+    message: 'Verification email sent. Please check your inbox.'
   }
-  console.log('[auth.service] registerUser response:', userResponse)
-  return{user:userResponse,message:'Verification email sent.Please check inbox'}
 }
-const loginUser = async (email,password)=>{
-  console.log('[auth.service] loginUser called')
-  console.log('[auth.service] email received:', email)
 
-  const user = await User.findOne({email})
-  console.log('[auth.service] user found:', user ? 'YES' : 'NO')
-
-  if(!user){
-    const err = new Error('invalid email or password')
-    err.statusCode=401
+const resendVerificationEmail = async (email) => {
+  const user = await User.findOne({ email })
+  if (!user) {
+    return { message: 'If that email is registered, a verification link has been sent.' }
+  }
+  if (user.isEmailVerified) {
+    const err = new Error('Email is already verified.')
+    err.statusCode = 400
     throw err
   }
-  console.log('[auth.service] user.isBanned:', user.isBanned)
-  
-    if(user.isBanned){
-      const err = new Error(`Acccount banned.Reason:${user.banReason}`)
-      err.statusCode = 403
-      throw err
-    }
-    const isMatch = await user.comparePassword(password)
-    console.log('[auth.service] password match:', isMatch)
-    if(!isMatch){
-      const err = new Error('invalid email or password')
-      err.statusCode=401
-      throw err
-    }
-    if(!user.isEmailVerified){
+  const emailVerifyToken = uuidv4()
+  user.emailVerifyToken = emailVerifyToken
+  await user.save()
+  await sendVerificationEmail(email, emailVerifyToken)
+  return { message: 'Verification email resent. Please check your inbox.' }
+}
+
+const loginUser = async (email, password) => {
+  const user = await User.findOne({ email })
+  if (!user) {
+    const err = new Error('Invalid email or password')
+    err.statusCode = 401
+    throw err
+  }
+  if (user.isBanned) {
+    const err = new Error(`Account banned. Reason: ${user.banReason}`)
+    err.statusCode = 403
+    throw err
+  }
+  const isMatch = await user.comparePassword(password)
+  if (!isMatch) {
+    const err = new Error('Invalid email or password')
+    err.statusCode = 401
+    throw err
+  }
+  if (!user.isEmailVerified) {
     const err = new Error('Please verify your email before logging in.')
     err.statusCode = 403
     throw err
-}
-    const {accessToken,refreshToken} = generateTokens(user._id)
-    user.refreshTokens.push(refreshToken)
-    await user.save()
-    console.log('[auth.service] refresh token saved to MongoDB')
-  console.log('[auth.service] total active sessions:', user.refreshTokens.length)
-  const userResponse={
-    _id:user._id,
-    email:user.email,
-    role:user.role
   }
-  console.log('[auth.service] loginUser response data:', userResponse)
-  return{accessToken,refreshToken,user:userResponse}
+  const { accessToken, refreshToken } = generateTokens(user._id, user.email, user.role)
+  user.refreshTokens.push(refreshToken)
+  await user.save()
+  return { accessToken, refreshToken, user: { _id: user._id, email: user.email, role: user.role } }
 }
-const refreshAccessToken = async (refreshToken)=>{
-   console.log('[auth.service] refreshAccessToken called')
-  console.log('[auth.service] refresh token received (first 20 chars):', refreshToken?.substring(0, 20))
 
-  if(!refreshToken){
-    const err = new Error('No refreshtoken provided')
-    err.statusCode=401
+const refreshAccessToken = async (refreshToken) => {
+  if (!refreshToken) {
+    const err = new Error('No refresh token provided')
+    err.statusCode = 401
     throw err
   }
   let decoded
-  try{
-    decoded =jwt.verify(refreshToken,process.env.JWT_REFRESH_SECRET)
-    console.log('[auth.service] refresh token decoded:', decoded)
-    
-  }catch(_err){
-    const err = new Error('invalid or expired refresh token')
-    err.statusCode=401
+  try {
+    decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET)
+  } catch (_err) {
+    const err = new Error('Invalid or expired refresh token')
+    err.statusCode = 401
     throw err
   }
-   const user = await User.findById(decoded.id)
-  console.log('[auth.service] user found for refresh:', user ? 'YES' : 'NO')
-  if(!user){
-    const err = new Error('Usernot found')
-    err.statusCode=401
+  const user = await User.findById(decoded.id)
+  if (!user) {
+    const err = new Error('User not found')
+    err.statusCode = 401
     throw err
   }
-
   const tokenIndex = user.refreshTokens.indexOf(refreshToken)
-  console.log('[auth.service] token index in array:', tokenIndex)
-  if(tokenIndex===-1){
-    user.refreshTokens=[]
+  if (tokenIndex === -1) {
+    user.refreshTokens = []
     await user.save()
-     console.log('[auth.service] SECURITY: token not found — all sessions cleared')
     const err = new Error('Refresh token reuse detected. Please login again.')
     err.statusCode = 401
     throw err
   }
-const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user._id)
-  user.refreshTokens.splice(tokenIndex,1)
+  const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user._id, user.email, user.role)
+  user.refreshTokens.splice(tokenIndex, 1)
   user.refreshTokens.push(newRefreshToken)
   await user.save()
-  console.log('[auth.service] token rotated successfully')
-  return {accessToken:newAccessToken,refreshToken:newRefreshToken}
+  return { accessToken: newAccessToken, refreshToken: newRefreshToken }
 }
 
-const logoutUser = async(userId,refreshToken)=>{
-    console.log('[auth.service] logoutUser called')
-  console.log('[auth.service] userId:', userId)
-
+const logoutUser = async (userId, refreshToken) => {
   const user = await User.findById(userId)
-  if(user && refreshToken){
-    const before = user.refreshTokens.length
-    user.refreshTokens=user.refreshTokens.filter(t=>t!==refreshToken)
-    const after = user.refreshTokens.length
+  if (user && refreshToken) {
+    user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken)
     await user.save()
-    console.log('[auth.service] refresh tokens before:', before, 'after:', after)
   }
-  return{message:'Logged out successfully'}
+  return { message: 'Logged out successfully' }
 }
 
 const logoutAllDevices = async (userId) => {
-    console.log('[auth.service] logoutAllDevices called')
-    console.log('[auth.service] userId:', userId)
-
-    const user = await User.findById(userId)
-    if(user){
-        user.refreshTokens = []
-        await user.save()
-        console.log('[auth.service] all sessions cleared for user:', userId)
-    }
-    return { message: 'Logged out from all devices successfully' }
+  const user = await User.findById(userId)
+  if (user) {
+    user.refreshTokens = []
+    await user.save()
+  }
+  return { message: 'Logged out from all devices successfully' }
 }
-const verifyEmail = async(token)=>{
-  console.log('[auth.service] verifyEmail called')
-  console.log('[auth.service] token received:', token)
-  const user = await User.findOne({emailVerifyToken:token})
-  console.log('[auth.service] user found with token:', user ? 'YES' : 'NO')
-  if(!user){
-    const err = new Error('invalid or expired verification token')
-    err.statusCode=400
+
+const verifyEmail = async (token) => {
+  const user = await User.findOne({ emailVerifyToken: token })
+  if (!user) {
+    const err = new Error('Invalid or expired verification token')
+    err.statusCode = 400
     throw err
   }
-  user.isEmailVerified=true
-  user.role='user'
-  user.emailVerifyToken=null
+  user.isEmailVerified = true
+  user.role = 'user'
+  user.emailVerifyToken = null
   await user.save()
-   console.log('[auth.service] email verified — role upgraded to user')
-  console.log('[auth.service] user._id:', user._id)
-  
   await callUserService('post', '/api/users/internal/update-role', {
-  authId: user._id.toString(),
-  role:   'user'
-})
-console.log('[auth.service] user-service role update called')
+    authId: user._id.toString(),
+    role:   'user'
+  })
   return { message: 'Email verified successfully. You can now login.' }
 }
-const forgetPassword = async(email)=>{
-  console.log('[auth.service] forgotPassword called')
-  console.log('[auth.service] email:', email)
-  const user = await User.findOne({email})
-   console.log('[auth.service] user found:', user ? 'YES' : 'NO (but still return success)')
-   if(user){
-   const resetToken =uuidv4()
-   user.resetToken=resetToken
-   user.resetTokenExpiry = new Date(Date.now()+60*60*1000)
-   await user.save()
-   console.log('[auth.service] reset token saved, expiry:', user.resetTokenExpiry)
-    await sendPasswordResetEmail(email,resetToken)
-   }
-    return { message: 'If an account with that email exists, a reset link has been sent.' }
+
+const forgetPassword = async (email) => {
+  const user = await User.findOne({ email })
+  if (user) {
+    const resetToken = uuidv4()
+    user.resetToken = resetToken
+    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000)
+    await user.save()
+    await sendPasswordResetEmail(email, resetToken)
+  }
+  return { message: 'If an account with that email exists, a reset link has been sent.' }
 }
-const resetPassword = async(token,newPassword)=>{
-    console.log('[auth.service] resetPassword called')
-  console.log('[auth.service] token received:', token)
-  const user = await User.findOne({resetToken:token})
-   console.log('[auth.service] user found with reset token:', user ? 'YES' : 'NO')
-   if(!user){
-      const err = new Error('Invalid or expired reset token')
-    err.statusCode = 400
-    throw err
-   }
-   console.log('[auth.service] token expiry:', user.resetTokenExpiry)
-  console.log('[auth.service] current time:', new Date())
-  if(user.resetTokenExpiry<new Date()){
-     const err = new Error('Reset token has expired. Please request a new one.')
+
+const resetPassword = async (token, newPassword) => {
+  const user = await User.findOne({ resetToken: token })
+  if (!user) {
+    const err = new Error('Invalid or expired reset token')
     err.statusCode = 400
     throw err
   }
-  user.password=newPassword
-  user.resetToken=null
-  user.resetTokenExpiry=null
-  user.refreshTokens=[]
+  if (user.resetTokenExpiry < new Date()) {
+    const err = new Error('Reset token has expired. Please request a new one.')
+    err.statusCode = 400
+    throw err
+  }
+  user.password = newPassword
+  user.resetToken = null
+  user.resetTokenExpiry = null
+  user.refreshTokens = []
   await user.save()
-
-  console.log('[auth.service] password reset successfully')
-  console.log('[auth.service] all sessions cleared for security')
-
   return { message: 'Password reset successfully. Please login with your new password.' }
 }
-const handleGoogleUser=async(googleProfile)=>{
-  console.log('[auth.service] handleGoogleUser called')
-  console.log('[auth.service] googleProfile.id:', googleProfile.id)
-  console.log('[auth.service] googleProfile.email:', googleProfile.emails[0].value)
 
-  const email=googleProfile.emails[0].value
+const handleGoogleUser = async (googleProfile) => {
+  const email    = googleProfile.emails[0].value
   const googleId = googleProfile.id
-  let user = await User.findOne({googleId})
-  console.log('[auth.service] found by googleId:', user ? 'YES' : 'NO')
-  if(!user){
-    user = await User.findOne({email})
-     console.log('[auth.service] found by email:', user ? 'YES — linking Google' : 'NO — creating new')
-     if(user){
-      user.googleId=googleId
+  let user = await User.findOne({ googleId })
+  if (!user) {
+    user = await User.findOne({ email })
+    if (user) {
+      user.googleId = googleId
+      user.isEmailVerified = true
+      if (user.role === 'visitor') user.role = 'user'
       await user.save()
-     }else{
-      user=new User({
-        email,
-        googleId,
-        isEmailVerified:true,
-        role:'user'
+      await callUserService('post', '/api/users/internal/update-role', {
+        authId: user._id.toString(),
+        role:   user.role
       })
+    } else {
+      user = new User({ email, googleId, isEmailVerified: true, role: 'user' })
       await user.save()
-       console.log('[auth.service] new user created via Google:', user._id)
-     }
+      await callUserService('post', '/api/users/internal/create-profile', {
+        authId: user._id.toString(),
+        email:  user.email,
+        role:   user.role
+      })
+    }
   }
-  if(user.isBanned){
-     const err = new Error(`Account banned. Reason: ${user.banReason}`)
+  if (user.isBanned) {
+    const err = new Error(`Account banned. Reason: ${user.banReason}`)
     err.statusCode = 403
     throw err
   }
-  const {accessToken,refreshToken}= generateTokens(user._id)
+  const { accessToken, refreshToken } = generateTokens(user._id, user.email, user.role)
   user.refreshTokens.push(refreshToken)
   await user.save()
-
-  console.log('[auth.service] Google login complete for:', user.email)
-  return{
-    accessToken,
-    refreshToken,
-    user:{_id:user._id,email:user.email,role:user.role}
-  }
+  return { accessToken, refreshToken, user: { _id: user._id, email: user.email, role: user.role } }
 }
-const sendVerificationEmail =async(email,token)=>{
-  const link = `${process.env.FRONTEND_URL}/verify-email?token=${token}`
-  console.log('[auth.service] sending verification email to:', email)
-  console.log('[auth.service] verification link:', link)
+
+const sendVerificationEmail = async (email, token) => {
+  const link = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`
   await sendEmail({
-    to:email,
-    subject:'Reclaim - Verify your email',
-    html:`
-     <h2>Welcome to Reclaim</h2>
-      <p>Click the link below to verify your email and activate your account.</p>
-      <a href="${link}">Verify Email</a>
-      <p>This link does not expire.</p>
+    to:      email,
+    subject: 'Reclaim - Verify your email',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;background:#f9f9f9;border-radius:8px;">
+        <h2 style="margin:0 0 8px;color:#111;">Welcome to Reclaim</h2>
+        <p style="color:#555;margin:0 0 24px;">Click the button below to verify your email and activate your account.</p>
+        <a href="${link}"
+           style="display:inline-block;padding:12px 28px;background:#6366f1;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:15px;">
+          Verify Email
+        </a>
+        <p style="color:#888;font-size:12px;margin:24px 0 4px;">If the button doesn't work, copy and paste this link into your browser:</p>
+        <p style="word-break:break-all;font-size:12px;color:#6366f1;margin:0;">${link}</p>
+      </div>
     `
   })
+  return link
 }
-  const sendPasswordResetEmail = async (email,token)=>{
-    const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`
-      console.log('[auth.service] sending password reset email to:', email)
-      console.log('[auth.service] reset link:', link)
 
-      await sendEmail({
-        to:email,
-        subject:'Reclaim-Reset your password',
-        html:`
-         <h2>Password Reset</h2>
-      <p>Click the link below to reset your password.</p>
-      <a href="${link}">Reset Password</a>
-      <p>This link expires in 1 hour.</p>
-      <p>If you did not request this, ignore this email.</p>`
-      })
-  }
-  module.exports={
-    registerUser,
-    loginUser,
-    refreshAccessToken,
-    logoutUser,
-    logoutAllDevices, 
-    verifyEmail,
-    forgetPassword,
-    resetPassword,
-    handleGoogleUser,
-    generateTokens
-  }
+const sendPasswordResetEmail = async (email, token) => {
+  const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`
+  await sendEmail({
+    to:      email,
+    subject: 'Reclaim - Reset your password',
+    html:    `<h2>Password Reset</h2><p>Click the link below to reset your password.</p><a href="${link}">Reset Password</a><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`
+  })
+}
+
+module.exports = {
+  registerUser,
+  resendVerificationEmail,
+  loginUser,
+  refreshAccessToken,
+  logoutUser,
+  logoutAllDevices,
+  verifyEmail,
+  forgetPassword,
+  resetPassword,
+  handleGoogleUser,
+  generateTokens
+}

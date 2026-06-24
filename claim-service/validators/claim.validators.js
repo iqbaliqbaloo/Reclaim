@@ -3,7 +3,6 @@ const { body, validationResult } = require('express-validator')
 const handleValidation = (req, res, next) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    console.log('[validators] failed:', errors.array())
     return res.status(400).json({
       success: false,
       error:   'Validation failed',
@@ -12,7 +11,6 @@ const handleValidation = (req, res, next) => {
   }
   next()
 }
-
 
 const submitClaimValidator = [
   body('listingId')

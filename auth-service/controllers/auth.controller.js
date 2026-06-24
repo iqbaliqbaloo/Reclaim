@@ -1,222 +1,146 @@
 const authService = require('../services/auth.service')
 const passport = require('passport')
-const{v4:uuidv4} =require('uuid')
 
-const register =async(req,res)=>{
-    try{
-        console.log('[auth.controller] register called')
-         console.log('[auth.controller] req.body received:', {
-      email:    req.body.email,
-      password: '***hidden***'
-    })
+const register = async (req, res) => {
+  try {
     const result = await authService.registerUser(req.body)
-    console.log('[auth.controller] sending register response:', result)
-    return res.status(201).json({
-      success: true,
-      data:    result,
-      message: result.message
-    })
-    }catch(err){
-        console.error('[auth.controller] register error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
+    return res.status(201).json({ success: true, data: result, message: result.message })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
 }
-const login = async (req,res)=>{
-    try{
-        console.log('[auth.controller] login called')
-    console.log('[auth.controller] req.body received:', {
-      email:    req.body.email,
-      password: '***hidden***'
-    })
-    const {accessToken,refreshToken,user} = await authService.loginUser(req.body.email,req.body.password)
-    res.cookie('refreshToken',refreshToken,{
-        httpOnly:true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-        maxAge:7*24*60*60*1000
-    })
-     console.log('[auth.controller] refresh token set as httpOnly cookie')
-    console.log('[auth.controller] sending login response')
-    return res.status(200).json({
-      success: true,
-      data:    { accessToken, user },
-      message: 'Login successful'
-    })
-    }catch(err){
-        console.error('[auth.controller] login error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const logout = async (req,res)=>{
-    try{
-        console.log('[auth.controller] logout called')
-    console.log('[auth.controller] req.user:', req.user)
-    console.log('[auth.controller] req.cookies.refreshToken present:', !!req.cookies.refreshToken)
-    await authService.logoutUser(req.user._id,req.cookies.refreshToken)
-    res.clearCookie('refreshToken')
-    console.log('[auth.controller] refreshToken cookie cleared')
-     return res.status(200).json({
-      success: true,
-      data:    null,
-      message: 'Logged out successfully'
-    })
-    }catch(err){
-         console.error('[auth.controller] logout error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const refresh =async(req,res)=>{
-    try{
-        console.log('[auth.controller] refresh called')
-    console.log('[auth.controller] req.cookies:', req.cookies)
-    console.log('[auth.controller] refreshToken in cookie:', !!req.cookies.refreshToken)
-    const {accessToken,refreshToken} =await authService.refreshAccessToken(req.cookies.refreshToken)
-    res.cookie('refreshToken',refreshToken,{
-        httpOnly:true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-        maxAge:7 * 24 * 60 * 60 * 1000
-    })
-    console.log('[auth.controller] new tokens issued and cookie set')
-    return res.status(200).json({
-      success: true,
-      data:    { accessToken },
-      message: 'Token refreshed'
-    })
-    }catch(err){
-         console.error('[auth.controller] refresh error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const verifyEmail = async(req,res)=>{
-    try{
-        console.log('[auth.controller] verifyEmail called')
-    // DATA IN: URL param
-    console.log('[auth.controller] req.params.token:', req.params.token)
-    const result = await authService.verifyEmail(req.params.token)
-    return res.status(200).json({
-      success: true,
-      data:    null,
-      message: result.message
-    })
-    }catch(err){
-        console.error('[auth.controller] verifyEmail error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const forgotPassword = async (req,res)=>{
-    try{
-        console.log('[auth.controller] forgotPassword called')
-    console.log('[auth.controller] req.body.email:', req.body.email)
-    const result = await authService.forgetPassword(req.body.email)
-     return res.status(200).json({
-      success: true,
-      data:    null,
-      message: result.message
-     })
-    }catch(err){
-         console.error('[auth.controller] forgotPassword error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const resetPassword =async(req,res)=>{
-    try{
-        console.log('[auth.controller] resetPassword called')
-    console.log('[auth.controller] req.params.token:', req.params.token)
-    console.log('[auth.controller] req.body.newPassword: ***hidden***')
-    const result = await authService.resetPassword(req.params.token,req.body.newPassword)
-    return res.status(200).json({
-      success: true,
-      data:    null,
-      message: result.message
-    })
-    }catch(err){
-         console.error('[auth.controller] resetPassword error:', err.message)
-    return res.status(err.statusCode || 500).json({
-      success: false,
-      error:   err.message
-    })
-    }
-}
-const googleAuth =(req,res,next)=>{
-   console.log('[auth.controller] googleAuth — starting OAuth flow')
-  passport.authenticate('google', {
-  scope: ['profile', 'email']
-})(req, res, next)
-}
-const googleCallback =(req,res,next)=>{
-  console.log('[auth.controller] googleCallback called')
-  console.log('[auth.controller] query params from Google:', req.query)
-   passport.authenticate('google',{session:false},async(err,result)=>{
-    if(err || !result){
-       console.error('[auth.controller] Google OAuth failed:', err?.message)
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/login?error=google_auth_failed`
-      )
-    }
-    const {accessToken,refreshToken,user} = result
-    console.log('[auth.controller] Google OAuth success for user:', user.email)
-     res.cookie('refreshToken', refreshToken, {
+
+const login = async (req, res) => {
+  try {
+    const { accessToken, refreshToken, user } = await authService.loginUser(req.body.email, req.body.password)
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure:   process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
       maxAge:   7 * 24 * 60 * 60 * 1000
     })
-    console.log('[auth.controller] redirecting to frontend with token')
-    res.redirect(
-      `${process.env.FRONTEND_URL}/auth/success?token=${accessToken}`
-    )
-   })(req,res,next)
+    return res.status(200).json({ success: true, data: { accessToken, user }, message: 'Login successful' })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
 }
-const getMe =async(req,res)=>{
-  console.log('[auth.controller] getMe called')
-  console.log('[auth.controller] req.user:', req.user)
-  return res.status(200).json({
-    success: true,
-    data:    req.user,
-    message: 'User info retrieved'
-  })
+
+const logout = async (req, res) => {
+  try {
+    await authService.logoutUser(req.user._id, req.cookies.refreshToken)
+    res.clearCookie('refreshToken')
+    return res.status(200).json({ success: true, data: null, message: 'Logged out successfully' })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
 }
 
 const logoutAll = async (req, res) => {
-    try {
-        console.log('[auth.controller] logoutAll called')
-        console.log('[auth.controller] req.user:', req.user)
-        await authService.logoutAllDevices(req.user._id)
-        res.clearCookie('refreshToken')
-        return res.status(200).json({
-            success: true,
-            data: null,
-            message: 'Logged out from all devices successfully'
-        })
-    } catch(err) {
-        console.error('[auth.controller] logoutAll error:', err.message)
-        return res.status(err.statusCode || 500).json({
-            success: false,
-            error: err.message
-        })
-    }
+  try {
+    await authService.logoutAllDevices(req.user._id)
+    res.clearCookie('refreshToken')
+    return res.status(200).json({ success: true, data: null, message: 'Logged out from all devices successfully' })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
 }
+
+const refresh = async (req, res) => {
+  try {
+    const { accessToken, refreshToken } = await authService.refreshAccessToken(req.cookies.refreshToken)
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+      maxAge:   7 * 24 * 60 * 60 * 1000
+    })
+    return res.status(200).json({ success: true, data: { accessToken }, message: 'Token refreshed' })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
+}
+
+const resendVerification = async (req, res) => {
+  try {
+    const result = await authService.resendVerificationEmail(req.body.email)
+    return res.status(200).json({ success: true, data: null, message: result.message })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
+}
+
+const verifyEmail = async (req, res) => {
+  try {
+    const result = await authService.verifyEmail(req.params.token)
+    return res.status(200).json({ success: true, data: null, message: result.message })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
+}
+
+const forgotPassword = async (req, res) => {
+  try {
+    const result = await authService.forgetPassword(req.body.email)
+    return res.status(200).json({ success: true, data: null, message: result.message })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
+}
+
+const resetPassword = async (req, res) => {
+  try {
+    const result = await authService.resetPassword(req.params.token, req.body.newPassword)
+    return res.status(200).json({ success: true, data: null, message: result.message })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message })
+  }
+}
+
+const googleAuth = (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_not_configured`)
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next)
+}
+
+const googleCallback = (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_not_configured`)
+  }
+  passport.authenticate('google', { session: false }, async (err, result) => {
+    if (err || !result) {
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`)
+    }
+    const { accessToken, refreshToken, user } = result
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+      maxAge:   7 * 24 * 60 * 60 * 1000
+    })
+    res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${accessToken}`)
+  })(req, res, next)
+}
+
+const getMe = async (req, res) => {
+  return res.status(200).json({ success: true, data: req.user, message: 'User info retrieved' })
+}
+
+const User = require('../models/user.model')
+
+const getUserEmail = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('email')
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' })
+    return res.status(200).json({ success: true, data: { email: user.email } })
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message })
+  }
+}
+
 module.exports = {
   register,
+  resendVerification,
   login,
   logout,
   logoutAll,
@@ -226,5 +150,6 @@ module.exports = {
   resetPassword,
   googleAuth,
   googleCallback,
-  getMe
+  getMe,
+  getUserEmail
 }

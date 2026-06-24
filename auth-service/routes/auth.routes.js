@@ -14,6 +14,7 @@ router.post('/login',loginLimiter,loginValidator,controller.login)
 router.post('/refresh',controller.refresh)
 
 router.get('/verify-email/:token',controller.verifyEmail)
+router.post('/resend-verification',controller.resendVerification)
 
 router.post('/forget-password',forgotPasswordValidator,controller.forgotPassword)
 
@@ -25,5 +26,6 @@ router.get('/google/callback',controller.googleCallback)
 router.post('/logout',protect,authorize('user', 'admin'),controller.logout)
 router.post('/logout-all', protect, authorize('user', 'admin'),controller.logoutAll) 
 router.get('/me',protect,authorize('user', 'admin'),controller.getMe)
+router.get('/user-email/:id', controller.getUserEmail)
 
 module.exports = router

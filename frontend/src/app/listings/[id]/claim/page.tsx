@@ -1,15 +1,3 @@
-/*
-  ============================================================
-  CLAIM PAGE — /listings/[id]/claim
-  Lost user submits a claim on a found listing
-
-  DATA FLOW:
-  ON LOAD: GET /listings/:id → fetch listing details
-  ON SUBMIT: POST /claims
-    Body: { listingId, claimDescription }
-  ============================================================
-*/
-
 'use client'
 
 import { useState, useEffect, FormEvent } from 'react'
@@ -33,47 +21,27 @@ export default function ClaimPage() {
 
   useEffect(() => {
     if (!params.id) return
-    listingApi.get<{ success: boolean; data: Listing }>(`/listings/${params.id}`)
-      .then(res => {
-        console.log('[Claim] listing loaded:', res.data.data.id)
-        setListing(res.data.data)
-      })
+    listingApi.get<{ success: boolean; data: Listing }>(`/api/listings/${params.id}`)
+      .then(res => setListing(res.data.data))
       .catch(() => setError('Listing not found'))
       .finally(() => setLoading(false))
   }, [params.id])
 
-  /*
-    DATA SENT:
-    POST /claims
-    Header: Authorization: Bearer token
-    Body: { listingId, claimDescription }
-    Form: JSON
-
-    DATA RECEIVED:
-    { success: true, data: { claim }, message: "Claim submitted" }
-  */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
-    setError(null)
-
-    console.log('[Claim] submitting claim for listing:', params.id)
-    console.log('[Claim] description length:', description.length)
-
+    setSubmitting(true); setError(null)
     try {
-      const res = await claimApi.post('/claims', {
+      await claimApi.post('/claims', {
         listingId:        Number(params.id),
         claimDescription: description
       })
-
-      console.log('[Claim] claim submitted:', res.data.data)
       router.push('/dashboard?claimed=true')
     } catch (err: any) {
-      const msg = err.response?.data?.error ||
-                  err.response?.data?.details?.[0]?.message ||
-                  'Failed to submit claim'
-      console.log('[Claim] error:', msg)
-      setError(msg)
+      setError(
+        err.response?.data?.error ||
+        err.response?.data?.details?.[0]?.message ||
+        'Failed to submit claim'
+      )
     } finally {
       setSubmitting(false)
     }
@@ -81,20 +49,23 @@ export default function ClaimPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <Navbar />
-        <p className="text-center text-gray-400 text-sm py-12">Loading...</p>
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <div className="skeleton h-8 w-48 mb-6" />
+          <div className="skeleton h-40 w-full" />
+        </div>
       </div>
     )
   }
 
   if (!listing) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <Navbar />
-        <div className="text-center py-12">
-          <p className="text-red-500 text-sm">Listing not found</p>
-          <Link href="/listings" className="text-blue-600 text-sm hover:underline mt-2 block">
+        <div className="text-center py-16">
+          <p className="text-danger text-sm mb-3">Listing not found</p>
+          <Link href="/listings" className="text-accent text-sm hover:opacity-70 transition-opacity">
             Back to listings
           </Link>
         </div>
@@ -102,13 +73,12 @@ export default function ClaimPage() {
     )
   }
 
-  // safety check — cannot claim own listing or non-found listings
-  if (user?.userId === listing.user_id) {
+  if (user?._id === listing.user_id) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <Navbar />
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-sm">You cannot claim your own listing.</p>
+        <div className="text-center py-16">
+          <p className="text-mid text-sm">You cannot claim your own listing.</p>
         </div>
       </div>
     )
@@ -116,92 +86,74 @@ export default function ClaimPage() {
 
   if (listing.type !== 'found' || listing.status !== 'active') {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <Navbar />
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-sm">This listing cannot be claimed.</p>
+        <div className="text-center py-16">
+          <p className="text-mid text-sm">This listing cannot be claimed.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8">
 
-        <Link
-          href={`/listings/${params.id}`}
-          className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block"
-        >
+        <Link href={`/listings/${params.id}`}
+          className="inline-flex items-center gap-1 text-sm text-lo hover:text-mid transition-colors mb-5">
           ← Back to listing
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Claim this item</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          Describe your lost item to prove ownership. The finder will read this
-          and decide whether to approve your claim.
+        <h1 className="text-2xl font-bold text-hi mb-2">Claim this item</h1>
+        <p className="text-sm text-mid mb-6 leading-relaxed">
+          Describe your lost item to prove ownership. The finder will read this and decide whether to approve.
         </p>
 
         {/* Listing preview */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="card p-4 mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-600">
-              Found
-            </span>
-            <span className="text-xs text-gray-400 capitalize">{listing.category}</span>
+            <span className="badge badge-found">Found</span>
+            <span className="text-xs text-lo capitalize">{listing.category}</span>
           </div>
-          <h3 className="text-sm font-semibold text-gray-800">{listing.title}</h3>
-          <p className="text-xs text-gray-500 mt-1">{listing.description}</p>
-          <p className="text-xs text-gray-400 mt-2">📍 {listing.location_label}</p>
+          <h3 className="text-sm font-semibold text-hi">{listing.title}</h3>
+          <p className="text-xs text-mid mt-1 leading-relaxed">{listing.description}</p>
+          <p className="text-xs text-lo mt-2">📍 {listing.location_label}</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600
-                          text-sm px-4 py-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
+        {error && <div className="banner-error mb-5">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Describe your lost item <span className="text-red-500">*</span>
+          <div className="card p-5">
+            <label className="form-label mb-1">
+              Describe your lost item <span className="text-danger">*</span>
             </label>
-            <p className="text-xs text-gray-400 mb-2">
-              Be specific — color, brand, distinguishing marks, what's inside,
+            <p className="text-xs text-lo mb-3 leading-relaxed">
+              Be specific — color, brand, distinguishing marks, what&apos;s inside,
               where exactly you lost it. The more detail, the better.
             </p>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="My wallet is brown leather with a torn corner on the left side. It contains 3 bank cards and a small photo of my daughter in the back pocket. I lost it near..."
-              required
-              minLength={20}
-              maxLength={2000}
-              rows={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2
-                         text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              onChange={e => setDescription(e.target.value)}
+              placeholder="My wallet is brown leather with a torn corner…"
+              required minLength={20} maxLength={2000} rows={6}
+              className="input-field px-3 py-2.5 text-sm resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              {description.length}/2000 (minimum 20 characters)
+            <p className="text-xs text-lo mt-1.5">
+              {description.length}/2000 (min 20 chars)
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-            <p className="text-xs text-blue-700">
-              ℹ️ The finder has 72 hours to review your claim. If approved, a private
-              chat will open so you can arrange the return.
-            </p>
+          <div className="banner-info text-xs leading-relaxed">
+            The finder has 72 hours to review. If approved, a private chat will open.
           </div>
 
           <button
             type="submit"
             disabled={submitting || description.length < 20}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl text-sm
-                       font-medium hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold"
           >
-            {submitting ? 'Submitting...' : 'Submit claim'}
+            {submitting ? 'Submitting…' : 'Submit claim'}
           </button>
         </form>
 

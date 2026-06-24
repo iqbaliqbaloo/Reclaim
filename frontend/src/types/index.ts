@@ -11,9 +11,9 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface AuthUser {
-  userId: string
-  email:  string
-  role:   'visitor' | 'user' | 'admin'
+  _id:   string
+  email: string
+  role:  'visitor' | 'user' | 'admin'
 }
 
 export interface AuthContextType {
@@ -39,7 +39,8 @@ export interface RegisterResponse {
     role:            string
     isEmailVerified: boolean
   }
-  message: string
+  message:    string
+  verifyLink?: string
 }
 
 // ─── API wrapper ──────────────────────────────────────────────────────────────

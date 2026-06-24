@@ -1,12 +1,3 @@
-/*
-  ============================================================
-  CHAT LIST PAGE — /chat
-  Shows all conversations for current user
-
-  DATA FLOW: GET /conversations
-  ============================================================
-*/
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -23,61 +14,64 @@ export default function ChatListPage() {
 
   useEffect(() => {
     chatApi.get<{ success: boolean; data: Conversation[] }>('/conversations')
-      .then(res => {
-        console.log('[ChatList] conversations:', res.data.data.length)
-        setConversations(res.data.data)
-      })
+      .then(res => setConversations(res.data.data))
       .catch(err => console.error('[ChatList] error:', err.message))
       .finally(() => setLoading(false))
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Chats</h1>
+        <h1 className="text-2xl font-bold text-hi mb-6">Chats</h1>
 
-        {loading && <p className="text-sm text-gray-400">Loading...</p>}
+        {loading && (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-20" />)}
+          </div>
+        )}
 
         {!loading && conversations.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-            <p className="text-gray-400 text-sm">No conversations yet</p>
+          <div className="card p-12 text-center">
+            <div className="text-4xl mb-3">💬</div>
+            <p className="text-mid text-sm">No conversations yet</p>
+            <p className="text-lo text-xs mt-2">Conversations open after a claim is approved.</p>
           </div>
         )}
 
         {conversations.length > 0 && (
           <div className="space-y-2">
             {conversations.map(conv => {
-              const isLostUser = user?.userId === conv.lost_user_id
-              const myMsgCount  = isLostUser ? conv.lost_msg_count  : conv.found_msg_count
-              const remaining   = 30 - myMsgCount
+              const isLostUser = user?._id === conv.lost_user_id
+              const myMsgCount = isLostUser ? conv.lost_msg_count : conv.found_msg_count
+              const remaining  = 30 - myMsgCount
 
               return (
                 <Link
                   key={conv.id}
                   href={`/chat/${conv.id}`}
-                  className="block bg-white rounded-xl border border-gray-200 p-4
-                             hover:border-blue-300 hover:shadow-sm transition-all"
+                  className="card card-hover flex items-center justify-between p-4"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                      style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2))', border: '1px solid rgba(59,130,246,0.2)' }}
+                    >
+                      💬
+                    </div>
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                          ${conv.status === 'active' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-500'}`}
-                        >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`badge ${conv.status === 'active' ? 'badge-active' : 'badge-removed'}`}>
                           {conv.status}
                         </span>
-                        <span className="text-xs text-gray-400">
-                          Listing #{conv.listing_id}
-                        </span>
+                        <span className="text-xs text-lo">Listing #{conv.listing_id}</span>
                       </div>
-                      <p className="text-xs text-gray-400">
-                        {remaining} messages remaining
-                      </p>
+                      <p className="text-xs text-lo">{remaining} messages remaining</p>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date(conv.updated_at).toLocaleDateString()}
-                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-lo">{new Date(conv.updated_at).toLocaleDateString()}</p>
+                    <p className="text-accent text-xs mt-1">Open →</p>
                   </div>
                 </Link>
               )

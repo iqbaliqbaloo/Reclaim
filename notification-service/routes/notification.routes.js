@@ -5,8 +5,8 @@ const { protect } = require('../middleware/auth')
 
 // user routes
 router.get('/',              protect, controller.getMyNotifications)
-router.put('/:id/read',      protect, controller.markRead)
 router.put('/read-all',      protect, controller.markAllRead)
+router.put('/:id/read',      protect, controller.markRead)
 
 // internal — called by other services
 router.post('/match',                    controller.handleNewMatch)

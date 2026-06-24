@@ -1,31 +1,54 @@
 const nodemailer = require('nodemailer')
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.sendgrid.net',
-    port:587,
-    auth:{
-        user:'apikey',
-        pass: process.env.SENGRID_API_KEY
-    }
-})
-const sendEmail = async({to,subject,html})=>{
-    console.log('[email.service] sendEmail called')
-    console.log('[email.service]to:',to)
-    console.log('[email.service] subject:',subject)
-    if (!process.env.SENDGRID_API_KEY){
-        console.log('[email.service] DEV MODE — no SendGrid key, logging email instead')
-    console.log('[email.service] EMAIL CONTENT:', { to, subject, html })
-    return
-    }
-    const mailOption={
-        from:process.env.EMAIL_FROM || 'noreply@reclaim.com',
-        to,
-        subject,
-        html
-    }
-    console.log('[email.service] sending email via SendGrid...')
-    const result = await transporter.sendMail(mailOption)
-    console.log('[email.service] email sent, messageId:', result.messageId)
-    return result
+const buildTransporter = () => {
+  // Generic SMTP — works with Gmail, Outlook, etc.
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      host:   process.env.SMTP_HOST,
+      port:   parseInt(process.env.SMTP_PORT) || 587,
+      secure: parseInt(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    })
+  }
+
+  // SendGrid fallback
+  if (process.env.SENDGRID_API_KEY) {
+    return nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      }
+    })
+  }
+
+  return null
 }
-module.exports = {sendEmail}
+
+const sendEmail = async ({ to, subject, html }) => {
+  const transporter = buildTransporter()
+
+  if (!transporter) {
+    // Dev fallback — print to console so the verification link is usable immediately
+    console.error('─────────────────────────────────────────')
+    console.error(`[email] No SMTP configured. Printing instead.`)
+    console.error(`TO:      ${to}`)
+    console.error(`SUBJECT: ${subject}`)
+    console.error(`BODY:\n${html.replace(/<[^>]+>/g, '')}`)
+    console.error('─────────────────────────────────────────')
+    return
+  }
+
+  await transporter.sendMail({
+    from:    process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@reclaim.com',
+    to,
+    subject,
+    html
+  })
+}
+
+module.exports = { sendEmail }
