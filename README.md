@@ -234,21 +234,3 @@ The frontend will be available at [http://localhost:3000](http://localhost:3000)
 
 Google OAuth: `/api/auth/google` → callback → redirect to `/auth/success` → tokens issued
 
----
-
-## Docker
-
-Several services include a `Dockerfile` (admin, claim, media, notification, resolution, search). A docker-compose file is not yet included — run services individually or wire them up yourself.
-
-```bash
-# Example: build and run media-service
-cd media-service
-docker build -t reclaim-media .
-docker run -p 4004:4004 --env-file .env reclaim-media
-```
-
----
-
-## License
-
-MIT
